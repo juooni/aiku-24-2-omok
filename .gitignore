@@ -108,3 +108,8 @@ run_archive/
 code_archive/
 games/archive/
 *.pyc
+
+run/
+models/
+*.csv
+*.deb

@@ -27,7 +27,10 @@ class Gen_Model():
 		self.output_dim = output_dim
 
 	def predict(self, x):
-		return self.model.predict(x)
+		predictions = self.model.predict(x) #모델 예측
+		
+		#return self.model.predict(x)
+		return predictions
 
 	def fit(self, states, targets, epochs, verbose, validation_split, batch_size):
 		return self.model.fit(states, targets, epochs=epochs, verbose=verbose, validation_split = validation_split, batch_size = batch_size)
@@ -112,6 +115,16 @@ class Residual_CNN(Gen_Model):
 		self.hidden_layers = hidden_layers
 		self.num_layers = len(hidden_layers)
 		self.model = self._build_model()
+		self.printed_io_info = False  # 모델 입출력 정보를 출력했는지 여부를 나타내는 플래그
+
+		# 모델 입출력 정보 출력 (처음에만 출력)
+		self.print_io_info()
+
+	def print_io_info(self): #
+		if not self.printed_io_info:
+			print("Model Input Shape:", self.model.input_shape)
+			print("Model Output Shape:", self.model.output_shape)
+			self.printed_io_info = True  # 한 번 출력했으므로 플래그를 True로 설정
 
 	def residual_layer(self, input_block, filters, kernel_size):
 
@@ -241,5 +254,6 @@ class Residual_CNN(Gen_Model):
 
 	def convertToModelInput(self, state):
 		inputToModel =  state.binary #np.append(state.binary, [(state.playerTurn + 1)/2] * self.input_dim[1] * self.input_dim[2])
-		inputToModel = np.reshape(inputToModel, self.input_dim) 
+		inputToModel = np.reshape(inputToModel, self.input_dim)
+
 		return (inputToModel)

@@ -3,6 +3,7 @@ import logging
 import config
 
 from utils import setup_logger
+import torch.multiprocessing as mp
 import loggers as lg
 
 class Node():
@@ -131,4 +132,3 @@ class MCTS():
 
 	def addNode(self, node):
 		self.tree[node.id] = node
-
