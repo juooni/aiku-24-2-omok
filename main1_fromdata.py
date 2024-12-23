@@ -19,11 +19,16 @@ from model1 import Residual_CNN
 from funcs1 import playMatches, playMatchesBetweenVersions
 import torch.multiprocessing as mp
 
+from tqdm import tqdm
+
 import loggers as lg
 
 from settings import run_folder, run_archive_folder
 import initialise
 import pickle
+
+import csv
+import pandas as pd
 
 def run():
     # 'device' 변수 정의
@@ -92,6 +97,10 @@ def run():
     # user_player = User('player1', env.state_size, env.action_size)
     iteration = 0
 
+    idx = 0
+
+    data = pd.read_csv('training_data_9by9.csv')
+
     while True:
         iteration += 1
         reload(lg)
@@ -103,16 +112,50 @@ def run():
         print('BEST PLAYER VERSION ' + str(best_player_version))
 
         ######## 자기 플레이 (Self-Play) ########
-        print('SELF PLAYING ' + str(config.EPISODES) + ' EPISODES...')
+        '''print('SELF PLAYING ' + str(config.EPISODES) + ' EPISODES...')
         _, memory, _, _ = playMatches(
             best_player, best_player, config.EPISODES, lg.logger_main,
             turns_until_tau0=config.TURNS_UNTIL_TAU0, memory=memory)
-        print('\n')
+        print('\n')'''
 
+        print('Converting data to memory...')
+
+        for _ in tqdm(range(1000)):
+            # load idx+ith row
+            row = data.iloc[idx]
+            row = row.to_dict()
+            winner = 1 if row['winner'] == 'black' else -1
+            player = 1
+            moves = row['moves']
+            moves = moves.split(' ')
+            board = np.zeros(config.BOARD_SIZE**2, dtype=int)
+            for move in moves:
+                pos = ord(move[0])-ord('d') + (int(move[1:])-4)*config.BOARD_SIZE
+                av = np.zeros(config.BOARD_SIZE**2, dtype=int)
+                av[pos] = 1
+                
+                state = GameState(board.copy(), player)
+                memory.stmemory.append({
+				'board': state.board
+				, 'state': state
+				, 'id': state.id
+				, 'AV': av.copy()
+				, 'playerTurn': state.playerTurn
+                , 'value': winner
+				})
+
+                board[pos] = player
+
+                player = -player
+                winner = -winner
+
+            idx += 1
+
+        memory.commit_ltmemory()
         memory.clear_stmemory()
 
-        if len(memory.ltmemory) >= config.MEMORY_SIZE:
-
+        # if len(memory.ltmemory) >= config.MEMORY_SIZE:
+        if True:
             ######## 재학습 ########
             print('RETRAINING...')
             current_player.replay(memory.ltmemory)
@@ -147,21 +190,22 @@ def run():
                 s['state'].render(lg.logger_memory)
 
             ######## 토너먼트 ########
-            print('TOURNAMENT...')
-            scores, _, points, sp_scores = playMatches(
-                best_player, current_player, config.EVAL_EPISODES, lg.logger_tourney,
-                turns_until_tau0=0, memory=None)
-            print('\nSCORES')
-            print(scores)
-            print('\nSTARTING PLAYER / NON-STARTING PLAYER SCORES')
-            print(sp_scores)
-
+            if iteration % 5 == 0:
+                print('TOURNAMENT...')
+                scores, _, points, sp_scores = playMatches(
+                    current_player, current_player, 1, lg.logger_tourney,
+                    turns_until_tau0=0, memory=None)
+                print('\nSCORES')
+                print(scores)
+                print('\nSTARTING PLAYER / NON-STARTING PLAYER SCORES')
+                print(sp_scores)
+            '''
             print('\n\n')
 
             if scores['current_player'] > scores['best_player'] * config.SCORING_THRESHOLD:
                 best_player_version += 1
                 best_NN.load_state_dict(current_NN.state_dict())
-                best_NN.write(env.name+'best', best_player_version)
+                best_NN.write(env.name+'best', best_player_version)'''
 
         else:
             print('MEMORY SIZE: ' + str(len(memory.ltmemory)))

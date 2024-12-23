@@ -6,7 +6,7 @@ from config import BOARD_SIZE
 
 class Game:
 
-	def __init__(self):		
+	def __init__(self):	
 		self.currentPlayer = 1
 		self.gameState = GameState(np.array([0]*(BOARD_SIZE ** 2), dtype=np.int64), 1)
 		self.actionSpace = np.array([0]*(BOARD_SIZE ** 2), dtype=np.int64)

@@ -132,3 +132,30 @@ class MCTS():
 
 	def addNode(self, node):
 		self.tree[node.id] = node
+
+	def merge_with(self, other_tree):
+		"""다른 트리의 통계 정보를 현재 트리에 병합"""
+		for node_id, other_node in other_tree.items():
+			if node_id not in self.tree:
+				self.tree[node_id] = other_node
+				continue
+				
+			current_node = self.tree[node_id]
+			# 엣지를 action을 키로 하는 딕셔너리로 변환
+			current_edges = {action: edge for action, edge in current_node.edges}
+			other_edges = {action: edge for action, edge in other_node.edges}
+			
+			# 모든 action에 대해 통계 병합
+			all_actions = set(current_edges.keys()) | set(other_edges.keys())
+			for action in all_actions:
+				if action in current_edges and action in other_edges:
+					# 양쪽 모두에 있는 엣지는 통계 합산
+					current_edge = current_edges[action]
+					other_edge = other_edges[action]
+					current_edge.stats['N'] += other_edge.stats['N']
+					current_edge.stats['W'] += other_edge.stats['W']
+					if current_edge.stats['N'] > 0:
+						current_edge.stats['Q'] = current_edge.stats['W'] / current_edge.stats['N']
+				elif action in other_edges:
+					# 새로운 엣지 추가
+					current_node.edges.append((action, other_edges[action]))

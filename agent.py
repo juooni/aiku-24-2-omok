@@ -27,7 +27,8 @@ class User():
         self.action_size = action_size
 
     def act(self, state, tau):
-        action = input('Enter your chosen action: ')
+        #action = input('Enter your chosen action: ')
+        action = int(input('Enter your chosen action: '))
         pi = np.zeros(self.action_size)
         pi[action] = 1
         value = None
@@ -79,11 +80,12 @@ class Agent():
             self.changeRootMCTS(state)
 
         #### run the simulation
-        for sim in range(self.MCTSsimulations):
+        '''for sim in range(self.MCTSsimulations):
             lg.logger_mcts.info('***************************')
             lg.logger_mcts.info('****** SIMULATION %d ******', sim + 1)
             lg.logger_mcts.info('***************************')
-            self.simulate()
+            self.simulate()'''
+        self.parallel_simulate()
 
         #### get action values
         pi, values = self.getAV(1)
@@ -174,6 +176,10 @@ class Agent():
     def replay(self, ltmemory):
         lg.logger_mcts.info('******RETRAINING MODEL******')
 
+        for i in range(5):
+            ltmemory[i]['state'].printBoard()
+            print(ltmemory[i]['AV'], ltmemory[i]['value'])
+
         for i in range(config.TRAINING_LOOPS):
             minibatch = random.sample(ltmemory, min(config.BATCH_SIZE, len(ltmemory)))
 
@@ -231,3 +237,41 @@ class Agent():
     def changeRootMCTS(self, state):
         lg.logger_mcts.info('****** CHANGING ROOT OF MCTS TREE TO %s FOR AGENT %s ******', state.id, self.name)
         self.mcts.root = self.mcts.tree[state.id]
+
+    def parallel_simulate(self, num_processes=config.THREADS):
+        with ProcessPoolExecutor(max_workers=num_processes) as executor:
+            # 각 프로세스가 동일한 시뮬레이션 횟수를 수행하도록 분배
+            sims_per_process = self.MCTSsimulations // num_processes
+            remaining_sims = self.MCTSsimulations % num_processes
+            
+            # 프로세스별 시뮬레이션 횟수 설정
+            process_sims = [sims_per_process + (1 if i < remaining_sims else 0) 
+                        for i in range(num_processes)]
+            
+            # 병렬 시뮬레이션 실행
+            futures = [executor.submit(self._process_simulation, sims) 
+                    for sims in process_sims]
+            
+            # 결과 수집 및 통계 합산
+            for future in futures:
+                sim_tree = future.result()
+                self.mcts.merge_with(sim_tree)
+
+    def _process_simulation(self, num_sims):
+        """각 프로세스에서 실행되는 시뮬레이션"""
+        print('!', end='')
+        # root 노드의 복사본 생성
+        root_copy = mc.Node(self.mcts.root.state)
+        mcts_copy = mc.MCTS(root_copy, self.cpuct)
+        
+        # root 노드의 엣지 정보 복사
+        for action, edge in self.mcts.root.edges:
+            new_edge = mc.Edge(root_copy, edge.outNode, edge.stats['P'], action)
+            root_copy.edges.append((action, new_edge))
+        
+        for _ in range(num_sims):
+            leaf, value, done, breadcrumbs = mcts_copy.moveToLeaf()
+            value, breadcrumbs = self.evaluateLeaf(leaf, value, done, breadcrumbs)
+            mcts_copy.backFill(leaf, value, breadcrumbs)
+        
+        return mcts_copy.tree

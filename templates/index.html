@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gomoku Game</title>
+    <style>
+        .board {
+            display: grid;
+            grid-template-columns: repeat(15, 40px);
+            grid-template-rows: repeat(15, 40px);
+            gap: 1px;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            background: #f0f0f0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #ccc;
+        }
+        .black {
+            background: black;
+            border-radius: 50%;
+        }
+        .white {
+            background: white;
+            border-radius: 50%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Gomoku Game</h1>
+    <div id="board" class="board"></div>
+    <script>
+        const boardElement = document.getElementById("board");
+        const boardSize = 15;
+        let board = Array.from({ length: boardSize }, () => Array(boardSize).fill(0));
+
+        // 보드 렌더링
+        function renderBoard() {
+            boardElement.innerHTML = "";
+            board.forEach((row, i) => {
+                row.forEach((cell, j) => {
+                    const cellDiv = document.createElement("div");
+                    cellDiv.className = "cell";
+
+                    if (cell === 1) {
+                        const black = document.createElement("div");
+                        black.className = "black";
+                        cellDiv.appendChild(black);
+                    } else if (cell === -1) {
+                        const white = document.createElement("div");
+                        white.className = "white";
+                        cellDiv.appendChild(white);
+                    }
+
+                    cellDiv.addEventListener("click", async () => {
+                        if (board[i][j] === 0) {
+                            await makeMove(i, j);
+                        }
+                    });
+                    boardElement.appendChild(cellDiv);
+                });
+            });
+        }
+
+        // 턴 처리
+        async function makeMove(row, col) {
+            try {
+                const response = await fetch("/move", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({ row, col }),
+                });
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                } else if (data.winner) {
+                    alert(`${data.winner} wins!`);
+                    board = data.board;
+                } else {
+                    board = data.board;
+                }
+                renderBoard();
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        renderBoard();
+    </script>
+</body>
+</html>
